@@ -1,0 +1,9 @@
+keras==2.14.0
+matplotlib==3.8.0
+networkx==3.2
+notebook==7.0.6
+numpy==1.26.1
+pandas==2.1.1
+scipy==1.11.3
+simpy==4.0.2
+sympy==1.12
