@@ -6,6 +6,10 @@ CODESERVER_URL=https://github.com/coder/code-server/releases/download/v4.18.0/co
 GOLANG_URL=https://go.dev/dl/go1.21.3.linux-amd64.tar.gz
 NODEJS_URL=https://nodejs.org/dist/v21.0.0/node-v21.0.0-linux-x64.tar.xz
 PYTHON_URL=https://www.python.org/ftp/python/3.12.0/Python-3.12.0.tar.xz
+PYTHON_REQUIREMENTS=/tmp/requirements.txt
+NONROOT_USER=coder
+
+ARCH="$(uname -m)-linux-gnu"
 
 # Build python
 # References, see:
@@ -16,15 +20,13 @@ build_python() {
 	local DST_DIR=$2
 
 	apt-get install -y \
-		build-essential dpkg-dev \
+		build-essential  \
 		libbz2-dev libc6-dev libcurl4-openssl-dev libdb-dev \
 		libevent-dev libffi-dev libgdbm-dev libglib2.0-dev libgmp-dev \
 		libjpeg-dev libkrb5-dev liblzma-dev libmagickcore-dev libmagickwand-dev \
 		libmaxminddb-dev libncurses5-dev libncursesw5-dev libpng-dev libpq-dev \
 		libreadline-dev libsqlite3-dev libssl-dev libtool libwebp-dev \
 		libxml2-dev libxslt-dev libyaml-dev zlib1g-dev
-
-	local ARCH=$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)
 
 	cd ${SRC_DIR}
 
@@ -51,12 +53,12 @@ build_python() {
 	find ${DST_DIR} -depth \( \( -type d -a \( -name test -o -name tests -o -name idle_test \) \) -o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \) \) \) -exec rm -fr '{}' +
 	echo ${DST_DIR}/lib > /etc/ld.so.conf.d/python.conf
 	ldconfig
-	${DST_DIR}/bin/pip3 install -r /tmp/requirements.txt
+	${DST_DIR}/bin/pip3 install -r ${PYTHON_REQUIREMENTS}
 }
 
 # Install basic packages to download and uncompress things
 apt-get update --fix-missing
-apt install -y curl unzip bzip2 xz-utils ca-certificates
+apt install -y sudo curl vim git unzip bzip2 xz-utils ca-certificates
 
 # Download and uncompress code-server binary
 curl -sSL ${CODESERVER_URL} > /tmp/code-server.tgz
@@ -83,3 +85,30 @@ tar xJf /tmp/python.txz -C /tmp/python-src --strip-components=1
 rm -f /tmp/python.txz
 build_python /tmp/python-src /opt/python
 rm -fr /tmp/python-src
+
+# Setup path profile
+echo 'PATH=/opt/python/bin:/opt/golang/bin:/opt/nodejs/bin:$PATH' > /etc/profile.d/path.sh
+echo 'export PATH' >> /etc/profile.d/path.sh
+
+# Create new user
+adduser --gecos '' --disabled-password ${NONROOT_USER} && \
+    mkdir -p /etc/sudoers.d && \
+    echo "${NONROOT_USER} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/nopasswd
+
+# Add Code Server extensions for ${NONROOT_USER}
+CODE_SERVER=/opt/code-server/bin/code-server
+if [ -e "${CODE_SERVER}" ]; then
+	sudo -i -u ${NONROOT_USER} ${CODE_SERVER} --install-extension 'ms-python.python'
+	sudo -i -u ${NONROOT_USER} ${CODE_SERVER} --install-extension 'ms-toolsai.jupyter'
+	sudo -i -u ${NONROOT_USER} ${CODE_SERVER} --install-extension 'golang.Go'
+	sudo -i -u ${NONROOT_USER} ${CODE_SERVER} --install-extension 'vscodevim.vim'
+	# curl -L https://github.com/microsoft/vscode-cpptools/releases/download/v1.18.0/cpptools-linux.vsix > /tmp/cpptools.vsix && \
+	#    sudo -i -u ${NONROOT_USER} ${CODE_SERVER} --install-extension /tmp/cpptools.vsix && \
+	#    rm -f /tmp/cpptools.vsix
+fi
+
+# Install dotfiles
+if [ -e $(which git) ]; then
+	sudo -i -u ${NONROOT_USER} git clone https://github.com/acornejo/dotfiles.git ${HOME}/.dotfiles
+	sudo -i -u ${NONROOT_USER} ${HOME}/.dotfiles/install.sh
+fi
