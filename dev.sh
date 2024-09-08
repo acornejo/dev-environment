@@ -3,7 +3,7 @@ HUB_REPO="acornejo/dev-environment"
 LABEL="buildme"
 case $1 in
   run)
-    sudo docker run --rm -p 8080:8080 -v  ${HOME}:/home/coder/mount -it ${LABEL}
+    sudo docker run --rm -p 8080:8080 --device /dev/snd -v  ${HOME}:/home/coder/mount -it ${LABEL}
     ;;
   build)
     sudo docker build -t ${LABEL} .

@@ -29,7 +29,7 @@ RUN echo /opt/python/lib > /etc/ld.so.conf.d/python.conf && ldconfig
 
 # Copy non-root user configuration
 COPY --from=builder --chown=coder:coder /home/coder/.local /home/coder/.local
-COPY --from=builder --chown=coder:coder /home/coder/.local /home/coder/.dotfiles
+COPY --from=builder --chown=coder:coder /home/coder/.dotfiles /home/coder/.dotfiles
 RUN sudo -i -u coder /home/coder/.dotfiles/install.sh
 
 # Change over to non-root user
@@ -47,3 +47,4 @@ ENTRYPOINT exec /opt/code-server/bin/code-server --auth none --bind-addr 0.0.0.0
 # /opt: 1.5gb
 # vscode extensions: 200mb
 # debian base: 120mb
+# (optional) apt install build-essential (gcc g++ make) => adds 350mb (2.3gb total)
